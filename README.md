@@ -1,4 +1,5 @@
 **KESIMPULAN**
+
 tahap 1 
 1. Dataset terdiri dari sejumlah fitur numerik dan kategori dengan total baris dan kolom sesuai hasil .info().
 2. Tidak ditemukan missing values pada dataset.

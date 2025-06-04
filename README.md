@@ -25,3 +25,19 @@ Pemodelan :
 1. Model yang digunakan dan telah dilakukan perbandingan : KNN, LogisticRegression, Random Forest 
 2. Pada tahap pemodelan, dilakukan serangkaian proses pra-pemrosesan data untuk memastikan data yang digunakan berkualitas dan siap digunakan oleh algoritma klasifikasi. Langkah-langkah tersebut mencakup penghapusan data duplikat dan nilai kosong, penanganan outlier dengan pendekatan IQR, konversi variabel kategorikal menjadi numerik melalui encoding, penyeimbangan distribusi kelas menggunakan metode SMOTE, serta normalisasi data menggunakan StandardScaler. Tiga algoritma klasifikasi diterapkan dalam analisis ini, yaitu Logistic Regression, Random Forest, dan K-Nearest Neighbors (KNN). Evaluasi performa masing-masing model dilakukan menggunakan beberapa metrik, termasuk akurasi, presisi, recall, dan F1-score, serta divisualisasikan melalui confusion matrix dan grafik perbandingan performa. Berdasarkan hasil evaluasi, salah satu model menunjukkan kinerja terbaik dalam hal F1-score, yang mencerminkan keseimbangan yang baik antara kemampuan model dalam mengidentifikasi kelas positif dan menghindari kesalahan klasifikasi,ini juga ditunjukkan dengan hasil akumulasi presisi dan recaal yg baik. Secara keseluruhan, analisis ini membantu dalam memahami efektivitas masing-masing algoritma serta menentukan model yang paling sesuai untuk klasifikasi tingkat obesitas.
 
+tahap 4
+hyperparameter tuning :
+1. Hyperparameter tuning berhasil meningkatkan performa model, terutama pada Random Forest dan KNN.
+2. Random Forest:
+- Menggunakan RandomizedSearchCV, ditemukan kombinasi terbaik seperti n_estimators, max_depth, dan min_samples_split yang menghasilkan peningkatan F1 Score signifikan dibanding versi default.
+- Model ini tetap menjadi model dengan performa terbaik setelah tuning.
+3.K-Nearest Neighbors (KNN):
+- Dengan GridSearchCV, ditemukan nilai n_neighbors optimal yang meningkatkan akurasi dan stabilitas prediksi.
+- Walau peningkatan tidak sebesar Random Forest, kinerja KNN membaik setelah tuning.
+4. Logistic Regression:
+- Tuning terhadap C dan penalty menunjukkan peningkatan kecil.
+- Performa model ini cukup stabil, namun tidak mengalami lonjakan kinerja yang signifikan.
+5. Keseluruhan proses tuning:
+- Meningkatkan F1 Score semua model, terutama Random Forest.
+- Membuktikan pentingnya memilih parameter optimal, bukan hanya mengandalkan nilai default.
+

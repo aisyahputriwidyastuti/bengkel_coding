@@ -1,46 +1,31 @@
-# streamlit_app.py ( eda.py )
-import streamlit as st
+#import library
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import train_test_split, GridSearchCV, RandomizedSearchCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import (confusion_matrix, accuracy_score, precision_score,
                              recall_score, f1_score, ConfusionMatrixDisplay)
-from imblearn.over_sampling import SMOTE
 
-# ---------------------------- Judul ----------------------------
-st.title("Analisis Obesitas dan Pemodelan ML")
-st.write("Dataset: ObesityDataSet.csv")
+# 1. Load dataset
+df = pd.read_csv('C:/bengkod/ObesityDataSet.csv')
 
-# ---------------------------- Load dataset ----------------------------
-@st.cache_data
-def load_data():
-    return pd.read_csv('ObesityDataSet.csv')
-
-df = load_data()
-st.subheader("Data Asli")
-st.dataframe(df.head())
-
-# ---------------------------- Preprocessing ----------------------------
-st.subheader("Pembersihan Data")
-
-# Missing values & duplicates
-st.write("Jumlah Missing Values:")
-st.write(df.isnull().sum())
-st.write(f"Jumlah Duplikasi: {df.duplicated().sum()}")
-
+# 2. Tangani Missing Values dan Duplikasi
+print('===== Missing Values =====')
+print(df.isnull().sum())
+print('\n===== Duplikasi =====')
+print(f'Jumlah duplikat: {df.duplicated().sum()}')
 df.drop_duplicates(inplace=True)
 df.dropna(inplace=True)
 
-# Outlier removal using IQR
+# 3. Tangani Outlier dengan IQR
 numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns
-
 def remove_outliers_iqr(data, column):
     Q1 = data[column].quantile(0.25)
     Q3 = data[column].quantile(0.75)
@@ -52,11 +37,9 @@ def remove_outliers_iqr(data, column):
 for col in numeric_cols:
     df = remove_outliers_iqr(df, col)
 
-# Encoding
+# 4. Encoding Data Kategori
 cat_cols = df.select_dtypes(include='object').columns.tolist()
-if 'NObeyesdad' in cat_cols:
-    cat_cols.remove('NObeyesdad')
-
+cat_cols.remove('NObeyesdad')
 le = LabelEncoder()
 for col in cat_cols:
     df[col] = le.fit_transform(df[col])
@@ -64,45 +47,41 @@ for col in cat_cols:
 target_encoder = LabelEncoder()
 df['NObeyesdad'] = target_encoder.fit_transform(df['NObeyesdad'])
 
-st.success("Data selesai dibersihkan.")
-st.dataframe(df.head())
-
-# ---------------------------- Split ----------------------------
+# 5. Split fitur dan target
 X = df.drop('NObeyesdad', axis=1)
 y = df['NObeyesdad']
 
-# Pastikan y numerik dan X tidak mengandung object
-temp_check = X.dtypes == 'object'
-if temp_check.any():
-    st.error(f"Terdapat kolom bertipe object di X: {temp_check[temp_check].index.tolist()}")
-    st.stop()
+# 6. Tangani Ketidakseimbangan Kelas dengan SMOTE
+print('\nDistribusi Kelas Sebelum SMOTE:')
+print(y.value_counts())
+smote = SMOTE(random_state=42)
+X_res, y_res = smote.fit_resample(X, y)
+print('\nDistribusi Kelas Setelah SMOTE:')
+print(pd.Series(y_res).value_counts())
 
-# SMOTE
-@st.cache_data
-def smote_data(X, y):
-    sm = SMOTE(random_state=42)
-    return sm.fit_resample(X, y)
-
-X_res, y_res = smote_data(X, y)
-
-st.subheader("Distribusi Kelas Setelah SMOTE")
-st.bar_chart(pd.Series(y_res).value_counts())
-
-# Scaling
+# 7. Standardisasi
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X_res)
 X_scaled = pd.DataFrame(X_scaled, columns=X.columns)
 
-# Split
+# 8. Train‑test split
 X_train, X_test, y_train, y_test = train_test_split(
     X_scaled, y_res, test_size=0.2, stratify=y_res, random_state=42
 )
 
-# ---------------------------- Modeling ----------------------------
-st.subheader("Evaluasi Model – Baseline dan Tuned")
+# ------------------------------------------------------------------
+# BASELINE MODEL
+# ------------------------------------------------------------------
+baseline_models = {
+    'Logistic Regression': LogisticRegression(max_iter=1000),
+    'Random Forest': RandomForestClassifier(random_state=42),
+    'KNN': KNeighborsClassifier()
+}
 
 def evaluate_models(models_dict, X_tr, X_te, y_tr, y_te, label='Baseline'):
+    '''Melatih dan mengevaluasi model'''
     results = {'Model': [], 'Accuracy': [], 'Precision': [], 'Recall': [], 'F1 Score': []}
+
     for name, mdl in models_dict.items():
         mdl.fit(X_tr, y_tr)
         y_pred = mdl.predict(X_te)
@@ -116,21 +95,17 @@ def evaluate_models(models_dict, X_tr, X_te, y_tr, y_te, label='Baseline'):
         cm = confusion_matrix(y_te, y_pred)
         disp = ConfusionMatrixDisplay(confusion_matrix=cm)
         disp.plot(cmap='Blues')
-        st.pyplot(plt.gcf())
-        plt.clf()
+        plt.title(f'Confusion Matrix – {name} ({label})')
+        plt.show()
 
     return pd.DataFrame(results)
 
-# Baseline
-baseline_models = {
-    'Logistic Regression': LogisticRegression(max_iter=1000),
-    'Random Forest': RandomForestClassifier(random_state=42),
-    'KNN': KNeighborsClassifier()
-}
-
+print('\n===== EVALUASI BASELINE =====')
 baseline_metrics = evaluate_models(baseline_models, X_train, X_test, y_train, y_test)
 
-# Tuning
+# ------------------------------------------------------------------
+# HYPERPARAMETER TUNING
+# ------------------------------------------------------------------
 param_grids = {
     'Logistic Regression': {
         'C': np.logspace(-3, 3, 10),
@@ -138,16 +113,16 @@ param_grids = {
         'solver': ['lbfgs']
     },
     'Random Forest': {
-        'n_estimators': [100, 200],
-        'max_depth': [None, 10, 20],
-        'min_samples_split': [2, 5],
-        'min_samples_leaf': [1, 2],
+        'n_estimators': [100, 200, 400, 600],
+        'max_depth': [None, 10, 20, 30],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 2, 4],
         'bootstrap': [True, False]
     },
     'KNN': {
-        'n_neighbors': list(range(3, 11, 2)),
+        'n_neighbors': list(range(3, 21, 2)),
         'weights': ['uniform', 'distance'],
-        'metric': ['euclidean', 'manhattan']
+        'metric': ['euclidean', 'manhattan', 'minkowski']
     }
 }
 
@@ -155,44 +130,65 @@ tuned_models = {}
 best_params = {}
 
 for name, mdl in baseline_models.items():
-    search = (RandomizedSearchCV(mdl, param_grids[name], n_iter=10, cv=5, scoring='f1_weighted', n_jobs=-1, random_state=42)
-              if name == 'Random Forest' else
-              GridSearchCV(mdl, param_grids[name], cv=5, scoring='f1_weighted', n_jobs=-1))
-
+    if name == 'Random Forest':
+        search = RandomizedSearchCV(
+            estimator=mdl,
+            param_distributions=param_grids[name],
+            n_iter=30,
+            cv=5,
+            scoring='f1_weighted',
+            n_jobs=-1,
+            random_state=42
+        )
+    else:
+        search = GridSearchCV(
+            estimator=mdl,
+            param_grid=param_grids[name],
+            cv=5,
+            scoring='f1_weighted',
+            n_jobs=-1
+        )
     search.fit(X_train, y_train)
     tuned_models[name] = search.best_estimator_
     best_params[name] = search.best_params_
+    print(f'\nBest params {name}: {search.best_params_}')
 
-    st.write(f"Best Params untuk {name}:", best_params[name])
-
+# ------------------------------------------------------------------
+# EVALUASI MODEL TUNED
+# ------------------------------------------------------------------
+print('\n===== EVALUASI MODEL SETELAH TUNING =====')
 tuned_metrics = evaluate_models(tuned_models, X_train, X_test, y_train, y_test, label='Tuned')
 
-# ---------------------------- Visualisasi Performa ----------------------------
+# ------------------------------------------------------------------
+# VISUALISASI PERBANDINGAN
+# ------------------------------------------------------------------
 baseline_metrics['Tipe'] = 'Baseline'
 tuned_metrics['Tipe'] = 'Tuned'
 combined_metrics = pd.concat([baseline_metrics, tuned_metrics], ignore_index=True)
 
-st.subheader("📈 Perbandingan Performa Model")
-metrics_melted = combined_metrics.melt(id_vars=['Model', 'Tipe'], var_name='Metric', value_name='Score')
-
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(12, 6))
+metrics_melted = combined_metrics.melt(
+    id_vars=['Model', 'Tipe'], var_name='Metric', value_name='Score'
+)
 sns.barplot(x='Model', y='Score', hue='Metric', data=metrics_melted)
-plt.title('Perbandingan Baseline vs Tuned')
+plt.title('Perbandingan Performa Model – Baseline vs Tuned')
 plt.ylim(0, 1.05)
-st.pyplot(plt.gcf())
+plt.legend(loc='lower right')
+plt.show()
 
-# ---------------------------- Kesimpulan ----------------------------
-st.subheader("Kesimpulan")
-
+# ------------------------------------------------------------------
+# KESIMPULAN
+# ------------------------------------------------------------------
+print('\n===== KESIMPULAN =====')
 best_baseline = baseline_metrics.loc[baseline_metrics['F1 Score'].idxmax()]
 best_tuned = tuned_metrics.loc[tuned_metrics['F1 Score'].idxmax()]
 improvement = best_tuned['F1 Score'] - best_baseline['F1 Score']
 
-st.write(f"Model terbaik sebelum tuning: **{best_baseline['Model']}** (F1 Score = {best_baseline['F1 Score']:.4f})")
-st.write(f"Model terbaik setelah tuning: **{best_tuned['Model']}** (F1 Score = {best_tuned['F1 Score']:.4f})")
-st.write(f"Peningkatan F1 Score: **{improvement:.4f}**")
+print(f'Performa terbaik baseline: {best_baseline["Model"]} (F1 = {best_baseline["F1 Score"]:.4f})')
+print(f'Performa terbaik setelah tuning: {best_tuned["Model"]} (F1 = {best_tuned["F1 Score"]:.4f})')
+print(f'Peningkatan F1 Score: {improvement:.4f}')
 
 if improvement > 0:
-    st.success("Hyperparameter tuning berhasil meningkatkan performa model.")
+    print('🔸 Hyperparameter tuning berhasil meningkatkan kinerja model.')
 else:
-    st.warning("Tuning tidak memberikan peningkatan signifikan, pertimbangkan teknik lain seperti feature engineering.")
+    print('🔸 Hyperparameter tuning tidak memberikan peningkatan signifikan; pertimbangkan teknik lain (mis. feature engineering).')

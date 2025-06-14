@@ -1,10 +1,9 @@
-# streamlit_app.py (eda.py)
+# streamlit_app.py ( eda.py )
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import os
 
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split, GridSearchCV, RandomizedSearchCV
@@ -15,16 +14,14 @@ from sklearn.metrics import (confusion_matrix, accuracy_score, precision_score,
                              recall_score, f1_score, ConfusionMatrixDisplay)
 from imblearn.over_sampling import SMOTE
 
-# ---------------------------- Title ----------------------------
+# ---------------------------- Judul ----------------------------
 st.title("Analisis Obesitas dan Pemodelan ML")
 st.write("Dataset: ObesityDataSet.csv")
 
 # ---------------------------- Load dataset ----------------------------
 @st.cache_data
 def load_data():
-    base_dir = os.path.dirname(__file__)
-    file_path = os.path.join(base_dir, 'ObesityDataSet.csv')
-    return pd.read_csv(file_path)
+    return pd.read_csv('ObesityDataSet.csv')
 
 df = load_data()
 st.subheader("Data Asli")
@@ -33,6 +30,7 @@ st.dataframe(df.head())
 # ---------------------------- Preprocessing ----------------------------
 st.subheader("Pembersihan Data")
 
+# Missing values & duplicates
 st.write("Jumlah Missing Values:")
 st.write(df.isnull().sum())
 st.write(f"Jumlah Duplikasi: {df.duplicated().sum()}")
@@ -40,6 +38,7 @@ st.write(f"Jumlah Duplikasi: {df.duplicated().sum()}")
 df.drop_duplicates(inplace=True)
 df.dropna(inplace=True)
 
+# Outlier removal using IQR
 numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns
 
 def remove_outliers_iqr(data, column):
@@ -53,6 +52,7 @@ def remove_outliers_iqr(data, column):
 for col in numeric_cols:
     df = remove_outliers_iqr(df, col)
 
+# Encoding
 cat_cols = df.select_dtypes(include='object').columns.tolist()
 if 'NObeyesdad' in cat_cols:
     cat_cols.remove('NObeyesdad')
@@ -71,6 +71,13 @@ st.dataframe(df.head())
 X = df.drop('NObeyesdad', axis=1)
 y = df['NObeyesdad']
 
+# Pastikan y numerik dan X tidak mengandung object
+temp_check = X.dtypes == 'object'
+if temp_check.any():
+    st.error(f"Terdapat kolom bertipe object di X: {temp_check[temp_check].index.tolist()}")
+    st.stop()
+
+# SMOTE
 @st.cache_data
 def smote_data(X, y):
     sm = SMOTE(random_state=42)
@@ -81,10 +88,12 @@ X_res, y_res = smote_data(X, y)
 st.subheader("Distribusi Kelas Setelah SMOTE")
 st.bar_chart(pd.Series(y_res).value_counts())
 
+# Scaling
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X_res)
 X_scaled = pd.DataFrame(X_scaled, columns=X.columns)
 
+# Split
 X_train, X_test, y_train, y_test = train_test_split(
     X_scaled, y_res, test_size=0.2, stratify=y_res, random_state=42
 )
@@ -109,10 +118,10 @@ def evaluate_models(models_dict, X_tr, X_te, y_tr, y_te, label='Baseline'):
         disp.plot(cmap='Blues')
         st.pyplot(plt.gcf())
         plt.clf()
-        plt.close()
 
     return pd.DataFrame(results)
 
+# Baseline
 baseline_models = {
     'Logistic Regression': LogisticRegression(max_iter=1000),
     'Random Forest': RandomForestClassifier(random_state=42),
@@ -121,6 +130,7 @@ baseline_models = {
 
 baseline_metrics = evaluate_models(baseline_models, X_train, X_test, y_train, y_test)
 
+# Tuning
 param_grids = {
     'Logistic Regression': {
         'C': np.logspace(-3, 3, 10),
@@ -153,7 +163,7 @@ for name, mdl in baseline_models.items():
     tuned_models[name] = search.best_estimator_
     best_params[name] = search.best_params_
 
-    st.write(f"🔍 Best Params untuk {name}:", best_params[name])
+    st.write(f"Best Params untuk {name}:", best_params[name])
 
 tuned_metrics = evaluate_models(tuned_models, X_train, X_test, y_train, y_test, label='Tuned')
 
@@ -170,11 +180,9 @@ sns.barplot(x='Model', y='Score', hue='Metric', data=metrics_melted)
 plt.title('Perbandingan Baseline vs Tuned')
 plt.ylim(0, 1.05)
 st.pyplot(plt.gcf())
-plt.clf()
-plt.close()
 
 # ---------------------------- Kesimpulan ----------------------------
-st.subheader("📝 Kesimpulan")
+st.subheader("Kesimpulan")
 
 best_baseline = baseline_metrics.loc[baseline_metrics['F1 Score'].idxmax()]
 best_tuned = tuned_metrics.loc[tuned_metrics['F1 Score'].idxmax()]
@@ -182,7 +190,7 @@ improvement = best_tuned['F1 Score'] - best_baseline['F1 Score']
 
 st.write(f"Model terbaik sebelum tuning: **{best_baseline['Model']}** (F1 Score = {best_baseline['F1 Score']:.4f})")
 st.write(f"Model terbaik setelah tuning: **{best_tuned['Model']}** (F1 Score = {best_tuned['F1 Score']:.4f})")
-st.write(f"🔼 Peningkatan F1 Score: **{improvement:.4f}**")
+st.write(f"Peningkatan F1 Score: **{improvement:.4f}**")
 
 if improvement > 0:
     st.success("Hyperparameter tuning berhasil meningkatkan performa model.")

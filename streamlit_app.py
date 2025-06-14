@@ -65,10 +65,18 @@ st.dataframe(df.head())
 X = df.drop('NObeyesdad', axis=1)
 y = df['NObeyesdad']
 
-@st.cache_data
 def smote_data(X, y):
     sm = SMOTE(random_state=42)
     return sm.fit_resample(X, y)
+
+st.write("Cek Tipe Data X:")
+st.write(X.dtypes)
+st.write("Cek Nilai Unik di y:")
+st.write(y.unique())
+
+X = X.astype('float64')
+y = y.astype('int')
+
 
 X_res, y_res = smote_data(X, y)
 st.subheader("Distribusi Kelas Setelah SMOTE")

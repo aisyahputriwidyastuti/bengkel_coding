@@ -189,6 +189,6 @@ print(f'Performa terbaik setelah tuning: {best_tuned["Model"]} (F1 = {best_tuned
 print(f'Peningkatan F1 Score: {improvement:.4f}')
 
 if improvement > 0:
-    print('🔸 Hyperparameter tuning berhasil meningkatkan kinerja model.')
+    print('Hyperparameter tuning berhasil meningkatkan kinerja model.')
 else:
-    print('🔸 Hyperparameter tuning tidak memberikan peningkatan signifikan; pertimbangkan teknik lain (mis. feature engineering).')
+    print('Hyperparameter tuning tidak memberikan peningkatan signifikan; pertimbangkan teknik lain (mis. feature engineering).')
